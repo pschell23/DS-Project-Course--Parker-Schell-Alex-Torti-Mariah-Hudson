@@ -1,0 +1,151 @@
+---
+title: "Day 1 Data Review"
+author: "Group 2"
+format: 
+  html:
+    mainfont: "Gill Sans"
+    toc: true
+    toc-title: "Index"
+    toc-depth: 2
+    smooth-scroll: true
+    toc-location: left
+    theme: "journal"
+editor: visual
+juypter: python3
+---
+```{python setup}
+#| include: false
+# Load libraries
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+from sklearn.cluster import KMeans
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+
+```
+# Data Review
+
+
+
+## Question and background information
+GIT HUB LINK: https://github.com/pschell23 DS-Project-Course--Parker-Schell-Alex-Torti-Mariah-Hudson/tree/main
+
+Question: We aim to investigate whether data science techniques can denote countries sharing similar characteristics in terms of both food prices and nutritional value indices.
+
+Signifcance: This research question addresses global challenges related to nutrition, food security, and sustainable development. The outcomes have the potential to guide the formulation of evidence-based policies, promoting better access to nutritious food and enhancing the well-being of the world.
+
+Background: The Food Prices for Nutrition database integrates data from the International Comparison Program, food composition databases, and diverse nutritional sources, offering a comprehensive perspective on healthy diet economics across 176 countries. Our data science research project focuses on the pivotal variable "Percent of the population who cannot afford a healthy diet [CoHD_headcount]," aiming to assess the likelihood of food scarcity in specific nations. This metric serves as a key indicator for addressing global challenges related to nutrition accessibility and affordability.
+
+## Loading in Data and Cleaning
+
+```{python}
+Food_data = pd.read_csv(r"/Users/alexandratorti/DS PROJECT COURSE/food_data.csv",encoding="latin")
+
+columns_to_drop = ['Classification Name', 'Classification Code', 'Classification Code', 'Time Code',]
+df_food = Food_data.drop(columns=columns_to_drop)
+df_food.head()
+
+```
+```{python}
+#We need to change the columns that are objects to strings and floats
+columns_to_convert = df_food.columns[3:37]
+df_food[columns_to_convert] = df_food[columns_to_convert].apply(pd.to_numeric, errors='coerce')
+
+columns_to_convert2 = df_food.columns[0:2]
+df_food[columns_to_convert2] = df_food[columns_to_convert2].astype(str)
+df_food.info()
+```
+
+```{python}
+# Group by the 'country' column and calculate the total number of NaN values for each country
+nan_counts_per_country = df_food.groupby('Country Name').apply(lambda x: x.isnull().sum()).sum(axis=1)
+
+# Replace 'nutrition_variable_column' with the actual name of the column you're interested in
+column_of_interest = 'Percent of the population who cannot afford a healthy diet [CoHD_headcount]'
+
+# Calculate the total number of NaN values for each country in the specified column
+nan_counts_per_country = df_food.groupby('Country Name')[column_of_interest].apply(lambda x: x.isnull().sum())
+
+# Create a new DataFrame with country names and their corresponding NaN counts for the specified column
+nan_counts_df = pd.DataFrame({'Country Name': nan_counts_per_country.index, 'NaN_Counts': nan_counts_per_country.values})
+
+# Sort the DataFrame based on NaN counts in descending order
+sorted_nan_counts_df = nan_counts_df.sort_values(by='NaN_Counts', ascending=False)
+
+# Display the DataFrame with NaN counts per country for the specified column
+print(sorted_nan_counts_df.head(50))
+
+# Get the list of countries with 5 or more NaN values
+countries_to_drop = nan_counts_df[nan_counts_df['NaN_Counts'] >= 5]['Country Name']
+
+# Drop rows with the specified countries from the original DataFrame
+df_filtered = df_food[~df_food['Country Name'].isin(countries_to_drop)]
+
+# Display the filtered DataFrame
+print(df_filtered)
+```
+
+## Now lets take a look at the distribution of our target variable 
+
+```{python}
+#Lets look at the distribution of the target variable
+
+#Histogram
+import matplotlib.pyplot as plt
+# Assuming 'target_variable' is the name of your target variable
+plt.hist(df_filtered['Percent of the population who cannot afford a healthy diet [CoHD_headcount]'], bins=30, edgecolor='black')
+plt.title('Histogram of Target Variable')
+plt.xlabel('Percent of the population who cannot afford a healthy diet [CoHD_headcount]')
+plt.ylabel('Frequency')
+plt.show()
+# looks like a lot of entries have low percentages of populations that cant afford healthy food. lets look at the lowest countries
+```
+
+```{python}
+#There seems to be a lot of values at 0, lets see which countries fall in this bin. 
+# Group by country and calculate statistics for the target variable
+grouped_data = df_filtered.groupby('Country Name')['Percent of the population who cannot afford a healthy diet [CoHD_headcount]'].describe()
+# Display the countries with the most values in the first bin
+countries_in_first_bin = grouped_data[grouped_data['25%'] <= df_filtered['Percent of the population who cannot afford a healthy diet [CoHD_headcount]'].min()]
+print(countries_in_first_bin)
+#These countries have very high development indexes and thus would have very low values of percent of the population who cannot afford a healthy diet
+```
+
+```{python}
+# Density plot
+print(df_filtered['Percent of the population who cannot afford a healthy diet [CoHD_headcount]'].plot.density())
+
+```
+
+#Boxplot
+```{python}
+# created a boxplot to find the median and max to see how we should bin the data
+import matplotlib.pyplot as plt
+
+column_to_plot = 'Percent of the population who cannot afford a healthy diet [CoHD_headcount]'
+
+plt.figure(figsize=(8, 6))
+plt.boxplot(df_filtered[column_to_plot].dropna(), vert=False)
+plt.title(f'Box Plot of {column_to_plot}')
+plt.xlabel('Column Values')
+median_value = df_filtered[column_to_plot].median()
+max_value = df_filtered[column_to_plot].max()
+print(f"Median: {median_value}")
+print(f"Maximum: {max_value}")
+plt.show()
+
+```
+
+```{python}
+# Add this as a predictor instead of replacing the numeric version this predictor indicates the countries that have a high percentage of people who cant afford a healthy diet as a 1 and those who dont as a 0
+df_food['CoHD_category'] = pd.cut(df_food['Percent of the population who cannot afford a healthy diet [CoHD_headcount]'], bins=[-1, 16.1, 79.8], labels=[0, 1])
+#said that countries that are a concern are above median
+```
+### Decision Trees and Probablity (method): We plan to use decision trees to understand critical features influencing the affordability of a healthy diet across countries. These decision trees will facilitate the identification of distinct clusters representing varying levels of food scarcity. Simultaneously using probability estimates to support our analysis by providing insights into the likelihood of specific nations encountering challenges related to nutrition accessibility.
+
+:::
