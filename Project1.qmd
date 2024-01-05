@@ -1,0 +1,466 @@
+---
+title: "Project 1 Final Presentation"
+author: "Group 2"
+format: 
+  html:
+    mainfont: "Gill Sans"
+    toc: true
+    toc-title: "Index"
+    toc-depth: 2
+    smooth-scroll: true
+    toc-location: left
+    theme: "journal"
+editor: visual
+juypter: python3
+---
+```{python setup}
+#| include: false
+# Load libraries
+# Load libraries
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+from sklearn.cluster import KMeans
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
+import xgboost as xgb
+from sklearn.metrics import accuracy_score
+import xgboost as xgb
+from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.metrics import roc_curve, auc, ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
+from sklearn.metrics import accuracy_score, classification_report
+
+
+```
+# Data Review
+## Question and background information
+GIT HUB LINK: https://github.com/pschell23 DS-Project-Course--Parker-Schell-Alex-Torti-Mariah-Hudson/tree/main
+
+Question: We aim to investigate whether data science techniques can denote countries sharing similar characteristics in terms of both food prices and nutritional value indices.
+
+Signifcance: This research question addresses global challenges related to nutrition, food security, and sustainable development. The outcomes have the potential to guide the formulation of evidence-based policies, promoting better access to nutritious food and enhancing the well-being of the world.
+
+Background: The Food Prices for Nutrition database integrates data from the International Comparison Program, food composition databases, and diverse nutritional sources, offering a comprehensive perspective on healthy diet economics across 176 countries. Our data science research project focuses on the pivotal variable "Percent of the population who cannot afford a healthy diet [CoHD_headcount]," aiming to assess the likelihood of food scarcity in specific nations. This metric serves as a key indicator for addressing global challenges related to nutrition accessibility and affordability.
+
+## Loading in Data and Cleaning
+
+```{python}
+Food_data = pd.read_csv(r"/Users/alexandratorti/DS PROJECT COURSE/food_data1.csv",encoding="latin")
+
+```
+In this section, we read multiple recent CSV files covering the years 2017 to 2021, encompassing diverse data related to income distribution, food production, poverty, undernourishment, low birth weight, crop production, and current healthcare expenditure. This decision was influenced by valuable feedback received from groups yesterday, which highlighted the limitations of our initial dataset in fully exploring and answering our research questions. To address these limitations, we opted to enhance our dataset by incorporating additional sources of information. 
+
+In this section, we read multiple recent CSV files covering the years 2017 to 2021, encompassing diverse data related to income distribution, food production, poverty, undernourishment, low birth weight, crop production, and current healthcare expenditure. This decision was influenced by valuable feedback received from groups yesterday, which highlighted the limitations of our initial dataset in fully exploring and answering our research questions. To address these limitations, we opted to enhance our dataset by incorporating additional sources of information. 
+ ## Merging Dataframes
+```{python}
+## 1. Income Share by Top
+
+import pandas as pd
+top_df = pd.read_csv(r"/Users/alexandratorti/DS PROJECT COURSE/Income share by top 10%.csv")
+df_top = pd.melt(top_df, id_vars=['Country Name', 'Country Code', 'Series Name', "Series Code"], var_name='Year', value_name='Income share held by highest 10%')
+columns_to_drop = ['Country Code', 'Series Name', 'Series Code']
+df_top = df_top.drop(columns=columns_to_drop) 
+df_top.head()
+
+## 2. Food production Index
+
+import pandas as pd
+foodp_df = pd.read_csv(r"/Users/alexandratorti/DS PROJECT COURSE/Food production index.csv")
+df_fp = pd.melt(foodp_df, id_vars=['Country Name', 'Country Code', 'Series Name', "Series Code"], var_name='Year', value_name='Food production index (2014-2016 = 100)')
+df_fp = df_fp.drop(columns=columns_to_drop)
+df_fp.head()
+
+## 3. Income share by lowest 10
+
+import pandas as pd
+low_df = pd.read_csv(r"/Users/alexandratorti/DS PROJECT COURSE/Income share by lowest 10%.csv")
+df_low = pd.melt(low_df, id_vars=['Country Name', 'Country Code', 'Series Name', "Series Code"], var_name='Year', value_name='Income share held by lowest 10%')
+df_low = df_low.drop(columns=columns_to_drop)
+df_low.head()
+
+## 4. Poverty Line
+
+import pandas as pd
+
+poverty_line_df = pd.read_csv(r"/Users/alexandratorti/DS PROJECT COURSE/Poverty line.csv")
+df_poverty_line = pd.melt(poverty_line_df, id_vars=['Country Name', 'Country Code', 'Series Name', "Series Code"], var_name='Year', value_name = 'Poverty headcount ratio at national poverty lines (% of population)')
+df_poverty_line = df_poverty_line.drop(columns=columns_to_drop)#
+df_poverty_line.head()
+
+## 5. Prevalence of Undernourishment
+
+import pandas as pd
+undernourishment_df = pd.read_csv(r"/Users/alexandratorti/DS PROJECT COURSE/Prevalence of undernourishment.csv")
+df_undernourishment = pd.melt(undernourishment_df, id_vars=['Country Name', 'Country Code', 'Series Name', "Series Code"], var_name='Year', value_name='Prevalence of undernourishment (% of population)')
+df_undernourishment = df_undernourishment.drop(columns=columns_to_drop)
+df_undernourishment.head()
+
+## 6. Low Birth Weight of Babies
+
+import pandas as pd
+low_birth_weight_df = pd.read_csv(r"/Users/alexandratorti/DS PROJECT COURSE/low birth weight babies.csv")
+df_low_birth_weight = pd.melt(low_birth_weight_df, id_vars=['Country Name', 'Country Code', 'Series Name', "Series Code"], var_name='Year', value_name='Low-birthweight babies (% of births)')
+df_low_birth_weight = df_low_birth_weight.drop(columns=columns_to_drop)
+df_low_birth_weight.head()
+
+# 7. Proportion of people living under median income
+
+import pandas as pd
+umedian_df = pd.read_csv(r"/Users/alexandratorti/DS PROJECT COURSE/Proportion of people living under median income.csv")
+df_umedian = pd.melt(umedian_df, id_vars=['Country Name', 'Country Code', 'Series Name', "Series Code"], var_name='Year', value_name='Proportion of people living below 50 percent of median income (%)')
+df_umedian = df_umedian.drop(columns=columns_to_drop)
+df_umedian.head()
+
+## 8. Current Healthcare expenditure 
+
+import pandas as pd
+che_df = pd.read_csv(r"/Users/alexandratorti/DS PROJECT COURSE/Current Healthcare expenditure.csv")
+df_che = pd.melt(che_df, id_vars=['Country Name', 'Country Code', 'Series Name', "Series Code"], var_name='Year', value_name='Current health expenditure (% of GDP)')
+df_che = df_che.drop(columns=columns_to_drop)
+df_che.head()
+
+## 9. Crop Production 
+
+import pandas as pd
+crop_df = pd.read_csv(r"/Users/alexandratorti/DS PROJECT COURSE/Crop production.csv")
+df_crop = pd.melt(crop_df, id_vars=['Country Name', 'Country Code', 'Series Name', "Series Code"], var_name='Year', value_name='Crop production index (2014-2016 = 100)')
+df_crop = df_crop.drop(columns=columns_to_drop)
+df_crop.head()
+
+#now its time to merge all our new data frames
+# Merge DataFrames
+merged_df = pd.merge(df_top, df_fp, on=['Country Name', 'Year'])
+merged_df = pd.merge(merged_df, df_low, on=['Country Name', 'Year'])
+merged_df = pd.merge(merged_df, df_poverty_line, on=['Country Name', 'Year'])
+merged_df = pd.merge(merged_df, df_undernourishment, on=['Country Name', 'Year'])
+merged_df = pd.merge(merged_df, df_low_birth_weight, on=['Country Name', 'Year'])
+merged_df = pd.merge(merged_df, df_umedian, on=['Country Name', 'Year'])
+merged_df = pd.merge(merged_df, df_che, on=['Country Name', 'Year'])
+merged_df = pd.merge(merged_df, df_crop, on=['Country Name', 'Year'])
+merged_df.head()
+
+```
+The cell below merges several DataFrames (`df_top`, `df_fp`, `df_low`, `df_poverty_line`, `df_undernourishment`, `df_low_birth_weight`, `df_umedian`, `df_che`, and `df_crop`) into a consolidated DataFrame named `merged_df`. The merging process is performed based on common columns ('Country Name' and 'Year'). This integration of DataFrames aims to create a comprehensive dataset that combines information from various aspects that could contribute to our target variable and original dataset
+
+
+```{python}
+# Fix the year variables to match the main dataset
+merged_df['Year'] = merged_df['Year'].str.extract(r'(\d{4})', expand=False)
+merged_df.head()
+
+# rename Time column on food_data to Year
+Food_data.rename(columns={'Time': 'Year'}, inplace=True)
+
+# Convert year to integer 
+Food_data['Year'] = pd.to_numeric(Food_data['Year'], errors='coerce')
+Food_data['Year'] = Food_data['Year'].fillna(0).astype(int)
+
+Food_data.head()
+
+# Convert an integer column to string 
+Food_data['Year'] = Food_data['Year'].astype(str)
+
+# Merge with original dataset
+merged_df = pd.merge(Food_data, merged_df, on=['Country Name', 'Year'])
+```
+## Exploratory Data Analysis
+```{python}
+#Drop columns that are not needed
+columns_to_drop = ['Classification Name', 'Classification Code', 'Classification Code', 'Time Code',]
+df_food = merged_df.drop(columns=columns_to_drop)
+df_food.head() 
+
+#Need to drop .. values so that we can transform values to floats
+df_food.replace('..', np.nan, inplace=True)
+df_food.info()
+
+#We need to change the columns that are objects to strings and floats
+columns_to_convert = df_food.columns[3:46]
+df_food[columns_to_convert] = df_food[columns_to_convert].apply(pd.to_numeric, errors='coerce')
+
+
+columns_to_convert2 = df_food.columns[0:2]
+df_food[columns_to_convert2] = df_food[columns_to_convert2].astype(str)
+df_food.info()
+
+# Group by the 'country' column and calculate the total number of NaN values for each country
+nan_counts_per_country = df_food.groupby('Country Name').apply(lambda x: x.isnull().sum()).sum(axis=1)
+
+# Replace 'nutrition_variable_column' with the actual name of the column you're interested in
+column_of_interest = 'Percent of the population who cannot afford a healthy diet [CoHD_headcount]'
+
+# Calculate the total number of NaN values for each country in the specified column
+nan_counts_per_country = df_food.groupby('Country Name')[column_of_interest].apply(lambda x: x.isnull().sum())
+
+# Create a new DataFrame with country names and their corresponding NaN counts for the specified column
+nan_counts_df = pd.DataFrame({'Country Name': nan_counts_per_country.index, 'NaN_Counts': nan_counts_per_country.values})
+
+# Sort the DataFrame based on NaN counts in descending order
+sorted_nan_counts_df = nan_counts_df.sort_values(by='NaN_Counts', ascending=False)
+
+# Display the DataFrame with NaN counts per country for the specified column
+print(sorted_nan_counts_df.head(50))
+
+# Get the list of countries with 5 or more NaN values
+countries_to_drop = nan_counts_df[nan_counts_df['NaN_Counts'] >= 5]['Country Name']
+
+# Drop rows with the specified countries from the original DataFrame
+df_filtered = df_food[~df_food['Country Name'].isin(countries_to_drop)]
+
+# Display the filtered DataFrame
+print(df_filtered)
+```
+
+## Now lets take a look at the distribution of our target variable 
+
+```{python}
+
+#Histogram
+plt.hist(df_filtered['Percent of the population who cannot afford a healthy diet [CoHD_headcount]'], bins=30, edgecolor='black', color='#ff7f0e')
+plt.title('Histogram of Target Variable')
+plt.xlabel('Percent of the population who cannot afford a healthy diet [CoHD_headcount]')
+plt.ylabel('Frequency')
+plt.show()
+# looks like a lot of entries have low percentages of populations that cant afford healthy food. lets look at the lowest countries
+
+#There seems to be a lot of values at 0, lets see which countries fall in this bin. 
+# Group by country and calculate statistics for the target variable
+grouped_data = df_filtered.groupby('Country Name')['Percent of the population who cannot afford a healthy diet [CoHD_headcount]'].describe()
+# Display the countries with the most values in the first bin
+countries_in_first_bin = grouped_data[grouped_data['25%'] <= df_filtered['Percent of the population who cannot afford a healthy diet [CoHD_headcount]'].min()]
+print(countries_in_first_bin)
+#These countries have very high development indexes and thus would have very low values of percent of the population who cannot afford a healthy diet
+```
+
+```{python}
+# Density plot
+print(df_filtered['Percent of the population who cannot afford a healthy diet [CoHD_headcount]'].plot.density())
+```
+
+```{python}
+# created a boxplot to find the median and max to see how we should bin the data
+
+column_to_plot = 'Percent of the population who cannot afford a healthy diet [CoHD_headcount]'
+
+plt.figure(figsize=(8, 6))
+plt.boxplot(df_filtered[column_to_plot].dropna(), vert=False)
+plt.title(f'Box Plot of {column_to_plot}')
+plt.xlabel('Column Values')
+median_value = df_filtered[column_to_plot].median()
+max_value = df_filtered[column_to_plot].max()
+
+plt.show()
+
+print(f"Median: {median_value}")
+print(f"Maximum: {max_value}")
+
+
+#df_filtered = df_filtered.loc[df_filtered['Percent of the population who cannot afford a healthy diet [CoHD_headcount]']< 80,:]  
+
+```
+
+##Setting up our model
+```{python}
+#add this as a predictor instead of replacing the numeric version
+# this predictor indicates the countries that have a high percentage of people who cant afford a healthy diet as a 1 and those who dont as a 0
+df_filtered['CoHD_category'] = pd.cut(df_food['Percent of the population who cannot afford a healthy diet [CoHD_headcount]'], bins=[-1, 16.1, 79.8], labels=[0, 1])
+#said that countries that are a concern are above median
+
+
+# Perform one-hot encoding
+df_filtered2 = pd.get_dummies(df_filtered, columns=["CoHD_category"], prefix="CoHD")
+ #True if 1, False if 0
+df_filtered2 = df_filtered2.drop(columns=['CoHD_0'])
+
+# Drop multiple columns
+columns_to_drop = ['Percent of the population who cannot afford nutrient adequacy [CoNA_headcount]', 'Percent of the population who cannot afford nutrient adequacy [CoNA_headcount]', 'Millions of people who cannot afford a healthy diet [CoHD_unafford_n]']
+df_filtered2 = df_filtered2.drop(columns=columns_to_drop)
+
+```
+Given the extent of NaN values in our data, we chose to use an xgBoost ML model (gradient boosting algorithms). XGBoost is like a bunch of little decision trees working together to make predictions. Each tree splits your data into groups based on what features best helps guess the outcome. 
+XGBoost belongs to the family of gradient boosting algorithms, which build a series of weak learners (typically decision trees)sequentially, where each tree corrects the errors made by the previous ones.
+
+```{python}
+#Lets try XGBOOST
+#we established our target variables as a categorical variable
+target_variable = 'CoHD_1'
+
+
+# Extract the target variable (y)
+y = df_filtered2[target_variable]
+
+X = df_filtered2.drop(columns=[target_variable, 'Country Name', 'Country Code', 'Year'])
+
+# Check for missing values in y
+if y.isnull().any():
+    # If y contains NaN values, handle them (for example, by removing rows with NaN in y)
+    df = df_filtered2.dropna(subset=[target_variable])
+    y = df[target_variable]
+    X = df.drop(columns=['Percent of the population who cannot afford a healthy diet [CoHD_headcount]', 'Country Name', 'Country Code'])
+# Extract the independent variables (X)
+    
+# Clean up feature names to allow for parsing
+X.columns = [col.replace('[', '').replace(']', '').replace('<', '') for col in X.columns]
+X = X.drop(columns = ['Percent of the population who cannot afford a healthy diet CoHD_headcount']) #too much correlation with this variable so must remove
+
+```
+```{python}
+# Concatenate X and y to form a new DataFrame
+df_combined = pd.concat([X, y], axis=1)
+
+# Calculate the correlation matrix
+correlation_matrix = df_combined.corr()
+
+# Display the correlation between the target variable and other variables
+target_correlations = correlation_matrix['CoHD_1'].sort_values(ascending=False)
+print(target_correlations)
+```
+
+```{python}
+#Use train_test_split twice to get training, testing, and tuning dataset
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, stratify= None, random_state=21) 
+#Check the output
+print(y_train.value_counts())
+print(y_test.value_counts())
+```
+
+### At this point, we are ready to fully build our model. This step establishes the proper parameters to achieve the best result for our data. This was done after I noticed some inconsistencies within our results. 
+
+```{python}
+# Define the XGBoost classifier
+xgb_classifier = xgb.XGBClassifier(objective='binary:logistic', random_state=42)
+
+# Define the hyperparameters and their search space
+param_grid = {
+    'learning_rate': [0.01, 0.1, 0.2],
+    'max_depth': [3, 5, 7],
+    'min_child_weight': [1, 3, 5],
+    'subsample': [0.8, 0.9, 1.0],
+    'colsample_bytree': [0.8, 0.9, 1.0]
+}
+
+# Define the GridSearchCV object
+grid_search = GridSearchCV(estimator=xgb_classifier, param_grid=param_grid, scoring='accuracy', cv=3)
+
+# Perform the grid search
+grid_search.fit(X_train, y_train)
+
+# Get the best hyperparameters
+best_params = grid_search.best_params_
+
+# Train the model with the best hyperparameters
+best_xgb_model = xgb.XGBClassifier(**best_params, objective='binary:logistic', random_state=42)
+best_xgb_model.fit(X_train, y_train)
+
+# Make predictions on the test set
+y_pred = best_xgb_model.predict(X_test)
+
+# Evaluate the model
+accuracy = accuracy_score(y_test, y_pred)
+print(f"Best Hyperparameters: {best_params}")
+print(f"Test Accuracy: {accuracy:.2f}")
+```
+
+### - Cosample bytree is set to 0.8, meaning each tree is trained on 80% of the features selected randomly.
+### - Learning rate controls the contribution of each tree to the final prediction, this is a scaling factor.
+### - max_depth is set to 5, limiting the depth of each tree.
+### - Min Child Weight helps control the minimum amount of data required in each child (leaf) node, larger the value the more conservative
+### - Subsample is set to 0.8, meaning each tree is trained on 80% of the training data selected randomly
+
+```{python}
+#now lets test feature importance: some of these features we believe were originally used to 
+#calculate our target variable. After further evaluation will decide whether or not to drop these variables
+
+xgb_classifier.fit(X_train, y_train)
+
+# Plot feature importance
+plt.figure(figsize=(10, 6))
+xgb.plot_importance(xgb_classifier, importance_type='weight', max_num_features=10, color = 'darkorange')
+plt.show()
+```
+
+```{python}
+#here is our classification report
+# Display classification report
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred))
+```
+
+### - Precision focuses on the accuracy of positive predictions.
+### - Recall focuses on the ability to capture all positive instances.
+### - F1-Score balances precision and recall, providing a single metric that considers both.
+### - Support provides the count of actual instances for each class.
+
+```{python}nConfusion matrix
+cm = confusion_matrix(y_test, y_pred)
+
+from matplotlib.colors import ListedColormap
+
+
+# Display the confusion matrix using a heatmap
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Oranges', cbar=False)
+plt.xlabel('Predicted')
+plt.ylabel('True')
+plt.title('Confusion Matrix')
+plt.show()
+```
+
+```{python}
+# Make predictions on the test set
+y_scores = xgb_classifier.predict_proba(X_test)[:, 1]
+# Calculate the ROC curve
+fpr, tpr, thresholds = roc_curve(y_test, y_scores)
+roc_auc = auc(fpr, tpr)
+
+# Plot the ROC curve
+plt.figure(figsize=(8, 6))
+plt.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (AUC = {:.2f})'.format(roc_auc))
+plt.plot([0, 1], [0, 1], color='#FFECB3', lw=2, linestyle='--')
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate (FPR)')
+plt.ylabel('True Positive Rate (TPR)')
+plt.title('Receiver Operating Characteristic (ROC) Curve')
+plt.legend(loc='lower right')
+plt.show()
+```
+
+```{python}
+#Now lets make up a country to put see what our model:
+# Get the minimum and maximum values for each feature
+feature_ranges = X.agg(['min', 'max'])
+
+print("Feature Ranges:")
+print(feature_ranges)
+
+num_samples = 1  
+fake_data = pd.DataFrame()
+
+# Generate random values for each feature within the derived ranges
+for feature in feature_ranges.columns.get_level_values(0):
+    min_val = feature_ranges.loc['min', feature]
+    max_val = feature_ranges.loc['max', feature]
+    random_values = np.random.uniform(min_val, max_val, num_samples)
+    fake_data[feature] = random_values
+
+fake_data.head()
+
+
+fake_data.to_excel('new_country.xlsx', index=False)
+```
+
+```{python}
+fake_data_predictions = xgb_classifier.predict(fake_data)
+
+if fake_data_predictions[0] == 1:
+    print("The model predicts 'True'")
+else:
+    print("The model predicts 'False' ")
+#therefore there is a high percent of the population that cannot afford a nutritional diet
+```
+:::
